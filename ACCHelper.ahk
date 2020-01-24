@@ -1,5 +1,15 @@
 #NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
 ;#Warn  ; Enable warnings to assist with detecting common errors.
+;SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
+;SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+
+Global Selection, Options, Template, InputOutputControl, result
+
+Options := 	{"ControlSend":"ControlSend, ,@@@@,"
+			,"ControlClick":"ControlClick,,"
+			,"ControlFocus":"ControlFocus,,"
+			,"ControlSetText":"ControlSetText,,@@@@,"
+			,"ControlGetText":"ControlGetText,####,,"}
 
 Gui, Add, Text, x15 y13 w25 h26 Border gCrossHair 
 Gui, Add, Text, x15 y13 w25 h4  Border
@@ -8,54 +18,80 @@ Gui, Add, Text, x27 y18 w1 h19 Border vVBar
 Gui, Font, S6
 Gui, Add, Text, x11 y47 w35 h26 +Center, DRAG CURSOR
 Gui, Font, S12
-Gui Add, DropDownList, x62 y10 w200 vSelection gCSel, Send Text||Send Click
-Gui Add, Edit, x62 y+5 w200 h22 hwndSelid  vTestText, Type Text to Send.
-Gui, add, button, w400 gTest y10 x+15 w120 h55 , Test Code
+Gui Add, DropDownList, x62 y10 w200 vSelection gDropDownListSelection, ControlSend||ControlClick|ControlFocus|ControlSetText|ControlGetText
+Gui Add, Edit, x62 y+5 w200 h22 hwndInputOutputControl  vTestText, Type Text to Send.
+Gui, add, button, w400 gExecScript y10 x+15 w120 h55 , Test Code
 Gui, Add, Edit, x10 y+10 w400 h120 ReadOnly vEditControlDisplay, 
 Gui, Add, Edit, x10 y+10 w400 h120 vdisplayCode r6 Multi -Wrap 
 Gui, Show, Center, Microsoft Active Accessibility Helper
 return
 
-CSel:
-gui, submit, nohide
-if (Selection = "Send Click") {
-	GuiControl, disable, % Selid
-	GuiControl, text, % Selid, Sending a Click.
+DropDownListSelection()
+{
+	Gui, submit, nohide
+	If (Selection = "ControlClick") or (Selection = "ControlFocus") or (Selection = "ControlGetText")
+		{
+			GuiControl, disable, % InputOutputControl
+			GuiControl, text, % InputOutputControl, % "N/A - " Selection
+		}
+	if (Selection = "ControlSend") or (Selection = "ControlSetText")
+		{
+			GuiControl, enable, % InputOutputControl
+			GuiControl, -ReadOnly, % InputOutputControl
+			GuiControl, text, % InputOutputControl, Type Text to Send
+		}
+	If (Selection = "ControlGetText")
+		{
+			GuiControl, enable, % InputOutputControl
+			GuiControl, +ReadOnly, % InputOutputControl
+			GuiControl, text, % InputOutputControl, Text Will Show Here
+		}
 }
-else {
-	GuiControl, enable,% Selid
-	GuiControl, text, % Selid, Send Text
-}
-Return
 
 ~Lbutton Up::
-Lbutton_Pressed := False
-	if (CH = false) and (CheckSet = "Ac") 
+if (CH = false) and (Lbutton_Pressed = true) 
 	{ 
         GuiControl, Show, HBar
         GuiControl, Show, VBar
 		CrossHair(CH:=true)
 		Template := Code(Path, title, TestText, Selection)
 		GuiControl,text, displayCode, %Template%
+		Lbutton_Pressed := False
 	}
 Return	
 
-Test:
+CrossHair: 
+gui, submit, nohide
+GuiControl, Hide, HBar
+GuiControl, Hide, VBar
+CrossHair(CH:=false)
+Lbutton_Pressed := True
+	while, Lbutton_Pressed
+		{
+			MouseGetPos, , , id, control
+			WinGetTitle, title, ahk_id %id%
+			WinGetClass, class, ahk_id %id%
+			oAcc := Acc_ObjectFromPoint(vChildID)
+			Path := JEE_AccGetPath(oAcc, hWnd)
+			GuiControl, text, EditControlDisplay, ID:________%id%`nClass:_____ %class%`nTitle:______ %title%`nControl:____%control%`nACCPath:__ %path%
+		}
+return
+
+ExecScript:
 ExecScript(Template,,A_AhkPath)
 return
 
-Code(Path, title, text, Selection)
-{
-global SelectionCMD
+Code(Path, title, text, Selection) {
 WinGet,hWnd,id, %title%
 oAcc := Acc_Get("Object", path, 0, "ahk_id " hWnd)
 ControlHwnd := Acc_WindowFromObject(oAcc)
+SelectedCode := StrReplace(Options[Selection], "@@@@", text)
 
-if (Selection = "Send Text")
-	SelectionCMD = ControlSetText, , %text%, ahk_id %ControlHwnd%
-
-if (Selection = "Send Click")
-	SelectionCMD = ControlClick, , ahk_id %ControlHwnd%
+If (Selection = "ControlGetText") {
+		ControlGetText, result,, ahk_id %ControlHwnd%
+		SelectedCode := StrReplace(Options[Selection], "####", "result")
+		GuiControl, text, % InputOutputControl, % result	
+}
 
 Template =
 (
@@ -64,7 +100,13 @@ WinGet, hWnd, id, %title%
 oAcc := Acc_Get("Object", %path%, 0, "ahk_id " %hWnd%) 
 ControlHwnd := Acc_WindowFromObject(oAcc)
 ControlFocus, , ahk_id %ControlHwnd%
-%SelectionCMD%
+%SelectedCode% ahk_id %ControlHwnd%
+
+)
+
+FunctionsSection = 
+(
+
 
 ;========================================
 ;                Fucntions  
@@ -174,27 +216,10 @@ ExecScript(Script, Params="", AhkPath="")
     return Exec
 }
 )
-Template .= FucntionsAdd
+Template .= FunctionsSection
 return Template
 }
 
-CrossHair: 
-gui, submit, nohide
-CheckSet := "Ac"
-GuiControl, Hide, HBar
-GuiControl, Hide, VBar
-CrossHair(CH:=false)
-Lbutton_Pressed := True
-	while, Lbutton_Pressed
-		{
-			MouseGetPos, , , id, control
-			WinGetTitle, title, ahk_id %id%
-			WinGetClass, class, ahk_id %id%
-			oAcc := Acc_ObjectFromPoint(vChildID)
-			Path := JEE_AccGetPath(oAcc, hWnd)
-			GuiControl, text, EditControlDisplay, ID:________%id%`nClass:_____ %class%`nTitle:______ %title%`nControl:___  %control%`nACCPath:__ %path%
-		}
-return
 
 GuiClose:
 CrossHair(true)
