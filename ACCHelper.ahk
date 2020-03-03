@@ -1,161 +1,248 @@
-#NoEnv  ; Recommended for performance and compatibility with future AutoHotkey releases.
-; #Warn  ; Enable warnings to assist with detecting common errors.
-SendMode Input  ; Recommended for new scripts due to its superior speed and reliability.
-SetWorkingDir %A_ScriptDir%  ; Ensures a consistent starting directory.
+#NoEnv
+#SingleInstance, Force
+Global Lbutton_Pressed, Window := {}
+if !FileExist(A_MyDocuments . "\Autohotkey\Lib\ACC.ahk")
+    Extract_Acc(A_MyDocuments . "\Autohotkey\Lib\ACC.ahk")
+GUI := New MAA_Helper 
+Exit ; End of AES
 
+~Lbutton Up::MAA_Helper.Lbutton_OnRelease()
 
-Extract_ACC_Funcs(A_MyDocuments . "\Autohotkey\Lib\ACC.ahk")
-Menu Tray, Icon, C:\Windows\System32\SHELL32.dll,98
-
- 
-Global Selection, Options, Template, InputOutputControl, result, Path, title, TestText, Selection
-
-Options := 	{"ControlSend":"ControlSend, ,@@@@,"
-			,"ControlClick":"ControlClick,,"
-			,"ControlFocus":"ControlFocus,,"
-			,"ControlSetText":"ControlSetText,,@@@@,"
-			,"ControlGetText":"ControlGetText,####,,"}
-
-Gui, Font,, Verdana 
-Gui Color, FFFFFF
-GUI,Font, CWhite
-Gui Add, Text, x0 y0 w430 h94   +0x4E +HWNDhGUIBG +BackgroundTrans,
-DllCall("SendMessage", "Ptr", hGUIBG, "UInt", 0x172, "Ptr", 0, "Ptr", CreateDIB("0173C7", 1, 1))
-Gui, Font, S12 +bold
-Gui Add, Text, x9 y6 w400 h30 +Center +BackgroundTrans,Microsoft Active Accessibility Helper
-Gui, Font, S6 +Norm 
-Gui Add, Text, x11 y70 w35 h26 +Center +BackgroundTrans gCrossHair, DRAG CURSOR
-Gui Add, Text, x17 y33 w25 h26 Border gCrossHair
-Gui Add, Text, x17 y33 w25 h4 Border 
-Gui Add, Text, x20 y48 w19 h1  Border 
-Gui Add, Text, x29 y38 w1 h19 Border 
-
-GUI,Font,
-Gui, Font, S10
-Gui Add, DropDownList, x62 y33 w200 vSelection gDropDownListSelection, ControlSend||ControlClick|ControlFocus|ControlSetText|ControlGetText
-Gui Add, Edit, x62 y+5 w200 h22 hwndInputOutputControl  vTestText, Type Text to Send.
-Gui Add, Button, x267 y33 w144 h57 gExecScript, Test Code
-Gui Add, Edit,  x10 y100 w400 h120 +Multi +ReadOnly vEditControlDisplay, 
-Gui Add, Edit, x10 y+5 w400 h128 +Multi vdisplayCode r6 -Wrap 
-Gui, Show, Center w420, Microsoft Active Accessibility Helper
-return
-
-DropDownListSelection()
-{
-	Gui, submit, nohide
-	If (Selection = "ControlClick") or (Selection = "ControlFocus") or (Selection = "ControlGetText")
-		{
-			GuiControl, disable, % InputOutputControl
-			GuiControl, text, % InputOutputControl, % "N/A - " Selection
+; Start of Class
+class MAA_Helper { 
+    __new(){ 
+        static
+		WinTitle := "Microsoft Active Accessibility Helper"
+		Options := "+AlwaysOnTop"
+		This.Controls := []
+		this.Name := "Main"
+		this.WinTitle := WinTitle
+        Gui, % this.Name ":New", HWNDhGui, %WinTitle%
+		this.Handle := hGui
+        Gui, +Labelmy -Resize %Options%
+		Gui, Font,, Verdana 
+		Gui Color, FFFFFF
+		GUI,Font, CWhite
+		MAA_Helper.Add("Text","Text1", "x0 y0 w430 h94   +0x4E +HWNDhGUIBG +BackgroundTrans")
+		Gui, Font, S12 +bold
+		MAA_Helper.Add("Text","Text2", "x9 y6 w400 h30 +Center +BackgroundTrans",,"Microsoft Active Accessibility Helper")
+		Gui, Font, S5 
+		MAA_Helper.Add("Text","Text3", "x11 y60 w35 h26 +Center +BackgroundTrans", "CrossHair_onClick","DRAG CURSOR")
+		MAA_Helper.Add("Text","Text4", "x17 y33 w25 h26 Border", "CrossHair_onClick")
+		MAA_Helper.Add("Text","Text5", "x17 y33 w25 h4 Border ")
+		MAA_Helper.Add("Text","Text6", "x20 y48 w19 h1  Border  ")
+		MAA_Helper.Add("Text","Text7", "x29 y38 w1 h19 Border  ")
+		GUI,Font,
+		Gui, Font, S10
+		MAA_Helper.Add("DropDownList", "ComboBox1", " x62 y33 w200 ", "DDL", "Select Action||ControlSend|ControlClick|ControlFocus|ControlSetText|ControlGetText")
+		MAA_Helper.Add("Edit","Edit1"," xp y+5 w200 h22 +disabled","Edit1_OnType", "Type Text to Send.")
+		MAA_Helper.Add("Text","Text8", "x10 y+12 w400 h22 +center",,"Control Under Mouse")
+		MAA_Helper.Add("Edit","Edit2"," x10 y+0 w400 h120 +Multi +ReadOnly") 
+		MAA_Helper.Add("Text","Text9", "x10 y+2 w400 h22 +center",,"Generated Code")
+		MAA_Helper.Add("Edit","Edit3"," x10 y+0 w400 h128 +Multi r6 -Wrap")
+		MAA_Helper.Add("Button", "Button1", "x267 y33 w144 h51", "Button_onClick", "Test Code")
+		OnMessage(0x112, ObjBindMethod(this, "WM_SYSCOMMAND"), "1")  
+		This.Show()
+		return hGui
+    }
+	
+	Button_onClick() {
+		ControlGetText,x,Edit3
+		ExecScript(x,,A_AhkPath)
+		MsgBox 0x40024, Script Snippit, Would you like to copy the below generated code to the Clipboard?`n`n%x%
+		IfMsgBox Yes, {
+			Clipboard := x
 		}
-	if (Selection = "ControlSend") or (Selection = "ControlSetText")
-		{
-			GuiControl, enable, % InputOutputControl
-			GuiControl, -ReadOnly, % InputOutputControl
-			GuiControl, text, % InputOutputControl, Type Text to Send
-		}
-	If (Selection = "ControlGetText")
-		{
-			GuiControl, enable, % InputOutputControl
-			GuiControl, +ReadOnly, % InputOutputControl
-			GuiControl, text, % InputOutputControl, Text Will Show Here
-					ControlGetText, result,, ahk_id %ControlHwnd%
-		SelectedCode := StrReplace(Options[Selection], "####", "result")
-		GuiControl, text, % InputOutputControl, % result	
-
-		}
-		Template := Code(Path, title, TestText, Selection)
-		GuiControl, text, displayCode, %Template%
-}
-
-~Lbutton Up::
-if (CH = false) and (Lbutton_Pressed = true) 
-	{ 
-        GuiControl, Show, HBar
-        GuiControl, Show, VBar
-		CrossHair(CH:=true)
-		Template := Code(Path, title, TestText, Selection)
-		GuiControl,text, displayCode, %Template%
-		Lbutton_Pressed := False
 	}
-Return	
 
-CrossHair: 
-gui, submit, nohide
-GuiControl, Hide, HBar
-GuiControl, Hide, VBar
-CrossHair(CH:=false)
-Lbutton_Pressed := True
-	while, Lbutton_Pressed
-		{
-			MouseGetPos, , , id, control
-			WinGetTitle, title, ahk_id %id%
-			WinGetClass, class, ahk_id %id%
-			oAcc := Acc_ObjectFromPoint(vChildID)
-			Path := JEE_AccGetPath(oAcc, hWnd)
-			GuiControl, text, EditControlDisplay, ID:________%id%`nClass:_____ %class%`nTitle:______ %title%`nControl:____%control%`nACCPath:__ %path%
+	DDL(hwnd, GuiEvent, EventInfo) {
+		ControlGetText,Selection,, ahk_id %hwnd%
+		If (Selection = "ControlClick") or (Selection = "ControlFocus") or (Selection = "ControlGetText") or (Selection = "Select Action") {
+				GuiControl, disable, % "Edit1"
+				GuiControl, text, % "Edit1", % "N/A - " Selection
+			}
+		if (Selection = "ControlSetText") {
+				GuiControl, enable, % "Edit1"
+				GuiControl, -ReadOnly, % "Edit1"
+				GuiControl, text, % "Edit1", Type Text to Set
+			}
+		if (Selection = "ControlSend") {
+				GuiControl, enable, % "Edit1"
+				GuiControl, -ReadOnly, % "Edit1"
+				GuiControl, text, % "Edit1", Type Text to Send
+			}
+
+		If (Selection = "ControlGetText") {
+				GuiControl, disable, % "Edit1"
+				GuiControl, text, % "Edit1", Displayed in MsgBox Prompt
+			}
+	this.Code()
+	}
+
+	Lbutton_OnRelease() {
+		if (Lbutton_Pressed = true) { 
+			This.CrossHair("T")
+			Lbutton_Pressed := False
+			}
+	}
+
+	Edit1_OnType() {
+		This.Code()
+	}
+
+	CrossHair_onClick() {
+	This.CrossHair(CH:=false)
+	Lbutton_Pressed := True
+		while (Lbutton_Pressed = True) {
+				MouseGetPos, , , id, control
+				WinGetTitle, title, ahk_id %id%
+				WinGetClass, class, ahk_id %id%
+				oAcc := Acc_ObjectFromPoint(vChildID)
+				Path := JEE_AccGetPath(oAcc, hWnd)
+				GuiControl, text, Edit2, ID:	%id%`nClass:	%class%`nTitle:	%title%`nControl:	%control%`nACCPath:	%path%
+				Window.Path := Path
+				Window.title := title
+			}
+		This.Code()
 		}
-return
+	
+    Show(x := "Center", y := "Center"){
+        Gui, % this.Name ":Show", x%x% y%y% w420 h380
+    }
+	
+	Add(ControlType:="Edit", Name_Control:="Edit1", Options:="", Function:="Edit_onTyping", Value:=""){
+		static
+		Gui, Add, %ControlType%, HWNDh%Name_Control% v%Name_Control% %Options%,%Value%
+		Handle_Control := h%Name_Control%
+		This.Controls[Name_Control, "Handle"]:=Handle_Control
+		ControlHandler := ObjBindMethod(this, Function)
+		GuiControl +g, %Handle_Control%, %ControlHandler%
+		If InStr(Options, "hGUIBG")
+			DllCall("SendMessage", "Ptr", hGUIBG, "UInt", 0x172, "Ptr", 0, "Ptr", this.CreateDIB("0173C7", 1, 1))
+	}
+	
+	GuiControlGet(cmd := "", value := ""){
+		GuiControlGet, ov, %cmd%, % this.Handle, % value
+		return ov
+	}
+	
+	Delete(){
+		Gui, % this.Name ":Destroy"
+		ExitApp
+    }
+	
+	WM_SYSCOMMAND(wParam, lParam, msg, hwnd){
+		static SC_CLOSE := 0xF060
+		if (wParam = SC_CLOSE && this.Handle = hwnd) 
+			This.Delete()
+	}
+	
+	CrossHair(OnOff=1) {  ; Change Cursor to Cross-Hair
+		static AndMask, XorMask, $, h_cursor, IDC_CROSS := 32515
+	        ,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 ; system cursors
+	        , b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13   ; blank cursors
+	        , h1,h2,h3,h4,h5,h6,h7,h8,h9,h10,h11,h12,h13   ; handles of default cursors
+	    if (OnOff = "Init" or OnOff = "I" or $ = "") {      ; init when requested or at first call
+	        $ := "h"                                          ; active default cursors
+	        , VarSetCapacity( h_cursor,4444, 1 )
+	        , VarSetCapacity( AndMask, 32*4, 0xFF )
+	        , VarSetCapacity( XorMask, 32*4, 0 )
+	        , system_cursors := "32512,32513,32514,32515,32516,32642,32643,32644,32645,32646,32648,32649,32650"
+	        StringSplit c, system_cursors, `,
+	        Loop, %c0%
+	            h_cursor   := DllCall( "LoadCursor", "uint",0, "uint",c%A_Index% )
+	            , h%A_Index% := DllCall( "CopyImage",  "uint",h_cursor, "uint",2, "int",0, "int",0, "uint",0 )
+	            , b%A_Index% := DllCall("LoadCursor", "Uint", "", "Int", IDC_CROSS, "Uint")
+	    }
+	    $ := (OnOff = 0 || OnOff = "Off" || $ = "h" && (OnOff < 0 || OnOff = "Toggle" || OnOff = "T")) ? "b" : "h"
+	
+	    Loop, %c0%
+	        h_cursor := DllCall( "CopyImage", "uint",%$%%A_Index%, "uint",2, "int",0, "int",0, "uint",0 )
+	        , DllCall( "SetSystemCursor", "uint",h_cursor, "uint",c%A_Index% )
+	}
 
-ExecScript:
-ExecScript(Template,,A_AhkPath)
-return
-
-Code(Path, title, text, Selection) {
-WinGet,hWnd,id, %title%
-oAcc := Acc_Get("Object", path, 0, "ahk_id " hWnd)
-ControlHwnd := Acc_WindowFromObject(oAcc)
-SelectedCode := StrReplace(Options[Selection], "@@@@", text)
-
-If (Selection = "ControlGetText") {
-		ControlGetText, result,, ahk_id %ControlHwnd%
-		SelectedCode := StrReplace(Options[Selection], "####", "result")
-		GuiControl, text, % InputOutputControl, % result	
-}
-
-Template =
-(
+	CreateDIB(Input, W, H, ResizeW := 0, ResizeH := 0, Gradient := 1 ) {
+		WB := Ceil((W * 3) / 2) * 2, VarSetCapacity(BMBITS, (WB * H) + 1, 0), P := &BMBITS
+		Loop, Parse, Input, |
+		{
+			P := Numput("0x" . A_LoopField, P + 0, 0, "UInt") - (W & 1 && Mod(A_Index * 3, W * 3) = 0 ? 0 : 1)
+		}
+		hBM := DllCall("CreateBitmap", "Int", W, "Int", H, "UInt", 1, "UInt", 24, "Ptr", 0, "Ptr")
+		hBM := DllCall("CopyImage", "Ptr", hBM, "UInt", 0, "Int", 0, "Int", 0, "UInt", 0x2008, "Ptr")
+		DllCall("SetBitmapBits", "Ptr", hBM, "UInt", WB * H, "Ptr", &BMBITS)
+		If (Gradient != 1) {
+			hBM := DllCall("CopyImage", "Ptr", hBM, "UInt", 0, "Int", 0, "Int", 0, "UInt", 0x0008, "Ptr")
+		}
+		return DllCall("CopyImage", "Ptr", hBM, "Int", 0, "Int", ResizeW, "Int", ResizeH, "Int", 0x200C, "UPtr")
+	}
+	
+	Code() {
+	Path := Window.Path
+	title := Window.title
+	Options := 	{"Select Action":"Error No Action Selected"
+				,"ControlSend":"ControlSend, ,@@@@,"
+				,"ControlClick":"ControlClick,,"
+				,"ControlFocus":"ControlFocus,,"
+				,"ControlSetText":"ControlSetText,,@@@@,"
+				,"ControlGetText":"ControlGetText,@@@@,,"}
+	WinGet,hWnd,id, %title%
+	oAcc := Acc_Get("Object", path, 0, "ahk_id " hWnd)
+	ControlHwnd := Acc_WindowFromObject(oAcc)
+	ControlGetText,Selection,, % " ahk_id " This.Controls["ComboBox1" , "Handle"]
+	ControlGetText,text,, % " ahk_id " This.Controls["Edit1" , "Handle"]
+	if (Text = "Displayed in MsgBox Prompt")
+		SelectedCode := StrReplace(Options[Selection], "@@@@", "GetTextOutput")
+	else
+		SelectedCode := StrReplace(Options[Selection], "@@@@", text)
+	Template =
+	(
 WinActivate ahk_exe %title%
 WinGet, hWnd, id, %title%
-oAcc := Acc_Get("Object", %path%, 0, "ahk_id " %hWnd%) 
+oAcc := Acc_Get("Object", %path%, 0, "ahk_id " hWnd) 
 ControlHwnd := Acc_WindowFromObject(oAcc)
-ControlFocus, , ahk_id %ControlHwnd%
 %SelectedCode% ahk_id %ControlHwnd%
-)
-return Template
-}
+	)
+	if (Text = "Displayed in MsgBox Prompt")
+		Template .= "`nMsgBox % GetTextOutput"
+	GuiControl,Text, % This.Controls["Edit3", "Handle"], % Template
+	}
+} 
 
+; End of Class, Functions Below this line. 
 
-GuiClose:
-CrossHair(true)
-ExitApp
-return
-
-CrossHair(OnOff=1) {  ; Change Cursor to Cross-Hair
-    ; INIT = "I","Init"; OFF = 0,"Off"; TOGGLE = -1,"T","Toggle"; ON = others
-	static AndMask, XorMask, $, h_cursor, IDC_CROSS := 32515
-        ,c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13 ; system cursors
-        , b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13   ; blank cursors
-        , h1,h2,h3,h4,h5,h6,h7,h8,h9,h10,h11,h12,h13   ; handles of default cursors
-    if (OnOff = "Init" or OnOff = "I" or $ = "") {      ; init when requested or at first call
-        $ := "h"                                          ; active default cursors
-        , VarSetCapacity( h_cursor,4444, 1 )
-        , VarSetCapacity( AndMask, 32*4, 0xFF )
-        , VarSetCapacity( XorMask, 32*4, 0 )
-        , system_cursors := "32512,32513,32514,32515,32516,32642,32643,32644,32645,32646,32648,32649,32650"
-        StringSplit c, system_cursors, `,
-        Loop, %c0%
-            h_cursor   := DllCall( "LoadCursor", "uint",0, "uint",c%A_Index% )
-            , h%A_Index% := DllCall( "CopyImage",  "uint",h_cursor, "uint",2, "int",0, "int",0, "uint",0 )
-            , b%A_Index% := DllCall("LoadCursor", "Uint", "", "Int", IDC_CROSS, "Uint")
+ExecScript(Script, Params="", AhkPath="")
+{ ;https://github.com/G33kDude/CodeQuickTester
+    static Shell := ComObjCreate("WScript.Shell")
+    Name := "\\.\pipe\AHK_CQT_" A_TickCount
+    Pipe := []
+    Loop, 3
+    {
+        Pipe[A_Index] := DllCall("CreateNamedPipe"
+        , "Str", Name
+        , "UInt", 2, "UInt", 0
+        , "UInt", 255, "UInt", 0
+        , "UInt", 0, "UPtr", 0
+        , "UPtr", 0, "UPtr")
     }
-    $ := (OnOff = 0 || OnOff = "Off" || $ = "h" && (OnOff < 0 || OnOff = "Toggle" || OnOff = "T")) ? "b" : "h"
-
-    Loop, %c0%
-        h_cursor := DllCall( "CopyImage", "uint",%$%%A_Index%, "uint",2, "int",0, "int",0, "uint",0 )
-        , DllCall( "SetSystemCursor", "uint",h_cursor, "uint",c%A_Index% )
-; http://www.autohotkey.com/docs/commands/DllCall.htm
-; http://www.autohotkey.com/forum/topic4570.html#75609
+    if !FileExist(AhkPath)
+        throw Exception("AutoHotkey runtime not found: " AhkPath)
+    if (A_IsCompiled && AhkPath == A_ScriptFullPath)
+        AhkPath .= " /E"
+    if FileExist(Name)
+    {
+        Exec := Shell.Exec(AhkPath " /CP65001 " Name " " Params)
+        DllCall("ConnectNamedPipe", "UPtr", Pipe[2], "UPtr", 0)
+        DllCall("ConnectNamedPipe", "UPtr", Pipe[3], "UPtr", 0)
+        FileOpen(Pipe[3], "h", "UTF-8").Write(Script)
+    }
+    else ; Running under WINE with improperly implemented pipes
+    {
+        FileOpen(Name := "AHK_CQT_TMP.ahk", "w").Write(Script)
+        Exec := Shell.Exec(AhkPath " /CP65001 " Name " " Params)
+    }
+    Loop, 3
+        DllCall("CloseHandle", "UPtr", Pipe[A_Index])
+    return Exec
 }
 
 JEE_AccGetPath(oAcc, hWnd:="")
@@ -225,87 +312,17 @@ JEE_AccGetEnumIndex(oAcc, vChildID:=0)
 	}
 	return SubStr(vOutput, 1, -2)
 }
-
-ExecScript(Script, Params="", AhkPath="")
-{ ;https://github.com/G33kDude/CodeQuickTester
-    static Shell := ComObjCreate("WScript.Shell")
-    Name := "\\.\pipe\AHK_CQT_" A_TickCount
-    Pipe := []
-    Loop, 3
-    {
-        Pipe[A_Index] := DllCall("CreateNamedPipe"
-        , "Str", Name
-        , "UInt", 2, "UInt", 0
-        , "UInt", 255, "UInt", 0
-        , "UInt", 0, "UPtr", 0
-        , "UPtr", 0, "UPtr")
-    }
-    if !FileExist(AhkPath)
-        throw Exception("AutoHotkey runtime not found: " AhkPath)
-    if (A_IsCompiled && AhkPath == A_ScriptFullPath)
-        AhkPath .= " /E"
-    if FileExist(Name)
-    {
-        Exec := Shell.Exec(AhkPath " /CP65001 " Name " " Params)
-        DllCall("ConnectNamedPipe", "UPtr", Pipe[2], "UPtr", 0)
-        DllCall("ConnectNamedPipe", "UPtr", Pipe[3], "UPtr", 0)
-        FileOpen(Pipe[3], "h", "UTF-8").Write(Script)
-    }
-    else ; Running under WINE with improperly implemented pipes
-    {
-        FileOpen(Name := "AHK_CQT_TMP.ahk", "w").Write(Script)
-        Exec := Shell.Exec(AhkPath " /CP65001 " Name " " Params)
-    }
-    Loop, 3
-        DllCall("CloseHandle", "UPtr", Pipe[A_Index])
-    return Exec
-}
-
-
-CreateDIB(Input, W, H, ResizeW := 0, ResizeH := 0, Gradient := 1 ) {
-	WB := Ceil((W * 3) / 2) * 2, VarSetCapacity(BMBITS, (WB * H) + 1, 0), P := &BMBITS
-	Loop, Parse, Input, |
-	{
-		P := Numput("0x" . A_LoopField, P + 0, 0, "UInt") - (W & 1 && Mod(A_Index * 3, W * 3) = 0 ? 0 : 1)
-	}
-	hBM := DllCall("CreateBitmap", "Int", W, "Int", H, "UInt", 1, "UInt", 24, "Ptr", 0, "Ptr")
-	hBM := DllCall("CopyImage", "Ptr", hBM, "UInt", 0, "Int", 0, "Int", 0, "UInt", 0x2008, "Ptr")
-	DllCall("SetBitmapBits", "Ptr", hBM, "UInt", WB * H, "Ptr", &BMBITS)
-	If (Gradient != 1) {
-		hBM := DllCall("CopyImage", "Ptr", hBM, "UInt", 0, "Int", 0, "Int", 0, "UInt", 0x0008, "Ptr")
-	}
-	return DllCall("CopyImage", "Ptr", hBM, "Int", 0, "Int", ResizeW, "Int", ResizeH, "Int", 0x200C, "UPtr")
-}
-
-GdipCreateFromBase(B64, IsIcon := 0) 
-{
-	VarSetCapacity(B64Len, 0)
-	DllCall("Crypt32.dll\CryptStringToBinary", "Ptr", &B64, "UInt", StrLen(B64), "UInt", 0x01, "Ptr", 0, "UIntP", B64Len, "Ptr", 0, "Ptr", 0)
-	VarSetCapacity(B64Dec, B64Len, 0) ; pbBinary size
-	DllCall("Crypt32.dll\CryptStringToBinary", "Ptr", &B64, "UInt", StrLen(B64), "UInt", 0x01, "Ptr", &B64Dec, "UIntP", B64Len, "Ptr", 0, "Ptr", 0)
-	pStream := DllCall("Shlwapi.dll\SHCreateMemStream", "Ptr", &B64Dec, "UInt", B64Len, "UPtr")
-	VarSetCapacity(pBitmap, 0)
-	DllCall("Gdiplus.dll\GdipCreateBitmapFromStreamICM", "Ptr", pStream, "PtrP", pBitmap)
-	VarSetCapacity(hBitmap, 0)
-	DllCall("Gdiplus.dll\GdipCreateHBITMAPFromBitmap", "UInt", pBitmap, "UInt*", hBitmap, "Int", 0XFFFFFFFF)
-
-	If (IsIcon) 
-		DllCall("Gdiplus.dll\GdipCreateHICONFromBitmap", "Ptr", pBitmap, "PtrP", hIcon, "UInt", 0)
 	
-	ObjRelease(pStream)
-	return (IsIcon ? hIcon : hBitmap)
-}
-
-ACC_Funcs_Get(_What)
+Acc_Get2(_What)
 {
-	Static Size = 7850, Name = "Acc.ahk", Extension = "ahk", Directory = "C:\Users\babb\Documents\Autohotkey\Lib"
+	Static Size = 7850, Name = "ACC.ahk", Extension = "ahk", Directory = "C:\Users\babb\Documents\Autohotkey\Lib"
 	, Options = "Size,Name,Extension,Directory"
 	;This function returns the size(in bytes), name, filename, extension or directory of the file stored depending on what you ask for.
 	If (InStr("," Options ",", "," _What ","))
 		Return %_What%
 }
 
-Extract_ACC_Funcs(_Filename, _DumpData = 0)
+Extract_Acc(_Filename, _DumpData = 0)
 {
 	;This function "extracts" the file to the location+name you pass to it.
 	Static HasData = 1, Out_Data, Ptr
@@ -538,3 +555,4 @@ Acc_Get(Cmd, ChildPath="", ChildID=0, WinTitle="", WinText="", ExcludeTitle="", 
 	if Acc_Error()
 		throw Exception(ErrorLevel,-1)
 }
+
